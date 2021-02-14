@@ -1,26 +1,15 @@
 <script>
-    import { onMount } from "svelte";
-    import { stores } from "@sapper/app";
     import { fly } from "svelte/transition";
     import { createEventDispatcher } from "svelte";
 
-    import SlideThumb from "@src/comp/SlideThumb.svelte";
-    import FaFileAlt from "svelte-icons/fa/FaFileAlt.svelte";
-    import FaFilePowerpoint from "svelte-icons/fa/FaFilePowerpoint.svelte";
-    import FaBookmark from "svelte-icons/fa/FaBookmark.svelte";
-    import IoMdClose from "svelte-icons/io/IoMdClose.svelte";
-    import Spinner from "sscl/comp/ui/Spinner.svelte";
-
-    const { session } = stores();
     const dispatch = createEventDispatcher();
 
-    export let slide;
-    // TODO: export tags
+    export let item;
 
     const ANIMATION_DURATION = 300;
 
     // https://learn.javascript.ru/size-and-scroll-window#shirina-vysota-dokumenta
-    const init_doc_scrollHeight = Math.max(
+    const initDocScrollHeight = Math.max(
         document.body.scrollHeight,
         document.documentElement.scrollHeight,
         document.body.offsetHeight,
@@ -30,68 +19,40 @@
     );
 
     // SlideDetail positioning
-    $: triangle_offset_left =
-        (slide.dom_el.offsetLeft + slide.dom_el.offsetWidth / 2.2).toFixed(2) +
-        "px";
-    $: comp_offset_top =
-        (slide.dom_el.offsetTop + slide.dom_el.offsetHeight).toFixed(2) + "px";
+    $: triangle_offset_left = (item.targetDOM.offsetLeft + item.targetDOM.offsetWidth / 2.2).toFixed(2) + "px";
+    $: comp_offset_top = (item.targetDOM.offsetTop + item.targetDOM.offsetHeight).toFixed(2) + "px";
 
-    let posting = false;
-
-    function update_session_collection() {
-        posting = true;
-
-        fetch("/api/search/collection", {
-            method: "POST",
-            credentials: "include",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify(slide),
-        })
-            .then((res) => res.json())
-            .then((data) => {
-                posting = false;
-                $session.collection = data;
-            })
-            .catch((e) => {
-                posting = false;
-                console.warn("Error from post collection:", e);
-            });
-    }
-
-    function close_widget() {
+    function closeWidget() {
         // Checking if the widget has expanded the dimensions of document.body
-        const scrollY =
-            window.innerHeight + window.scrollY - init_doc_scrollHeight;
+        const scrollY = window.innerHeight + window.scrollY - initDocScrollHeight;
 
         if (scrollY > 0) {
-            scroll_window(ANIMATION_DURATION, scrollY);
+            scrollWindow(ANIMATION_DURATION, scrollY);
         }
 
         dispatch("close");
     }
 
     // Scroll window if widget goes beyond init_doc_scrollHeight
-    function scroll_window(duration, scrollY) {
-        const start_ts = performance.now();
-        let progress_scrollY = 0;
+    function scrollWindow(duration, scrollY) {
+        const startTs = performance.now();
+        let progressScrollY = 0;
 
-        requestAnimationFrame(function step(current_ts) {
-            let progress = (current_ts - start_ts) / duration;
+        requestAnimationFrame(function step(currentTs) {
+            let progress = (currentTs - startTs) / duration;
 
             if (progress >= 1) {
                 progress = 1;
             }
 
-            const top = (progress_scrollY - scrollY) * progress;
+            const top = (progressScrollY - scrollY) * progress;
 
             window.scrollBy({
                 behavior: "smooth",
                 top,
             });
 
-            progress_scrollY += -top;
+            progressScrollY += -top;
 
             if (progress < 1) {
                 requestAnimationFrame(step);
@@ -110,44 +71,34 @@
 </script>
 
 <div
+    style={`top: ${comp_offset_top}`}
     class="slide-details"
     transition:fly|local={{ y: -50, duration: ANIMATION_DURATION }}
-    style={`top: ${comp_offset_top}`}
 >
     <div class="top-triangle" style={`left: ${triangle_offset_left}`} />
 
     <div class="details-body">
         <div class="slide">
-            <div class="slide-thumb-wrapper">
-                <SlideThumb {slide} />
-            </div>
+            <div class="slide-thumb-wrapper" />
         </div>
 
         <div class="interaction">
             <div class="actions">
-                <div
-                    class="edit-collection"
-                    on:click|preventDefault={update_session_collection}
-                >
-                    <div class="icon">
-                        <FaBookmark />
-                    </div>
-                    {$session.collection &&
-                    $session.collection.findIndex(
-                        (sl) => sl.id === slide.id
-                    ) !== -1
-                        ? "Delete from collection"
-                        : "Add to collection"}
-                </div>
-
                 <a
                     class="slide-open"
                     target="_blank"
-                    href="/api/sm/download/pres-{slide.id}"
+                    href="/api/sm/download/pres-{item.id}"
                     title="Open original"
                 >
                     <div class="icon">
-                        <FaFileAlt />
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 384 512"
+                            class="svelte-c8tyih"
+                            ><path
+                                d="M224 136V0H24C10.7 0 0 10.7 0 24v464c0 13.3 10.7 24 24 24h336c13.3 0 24-10.7 24-24V160H248c-13.2 0-24-10.8-24-24zm64 236c0 6.6-5.4 12-12 12H108c-6.6 0-12-5.4-12-12v-8c0-6.6 5.4-12 12-12h168c6.6 0 12 5.4 12 12v8zm0-64c0 6.6-5.4 12-12 12H108c-6.6 0-12-5.4-12-12v-8c0-6.6 5.4-12 12-12h168c6.6 0 12 5.4 12 12v8zm0-72v8c0 6.6-5.4 12-12 12H108c-6.6 0-12-5.4-12-12v-8c0-6.6 5.4-12 12-12h168c6.6 0 12 5.4 12 12zm96-114.1v6.1H256V0h6.1c6.4 0 12.5 2.5 17 7l97.9 98c4.5 4.5 7 10.6 7 16.9z"
+                            /></svg
+                        >
                     </div>
                     Open in GoogleSlides
                 </a>
@@ -155,11 +106,18 @@
                 <a
                     class="slide-download"
                     target="_blank"
-                    href="/api/sm/download/pres-{slide.id}"
+                    href="/api/sm/download/pres-{item.id}"
                     title="Download original"
                 >
                     <div class="icon">
-                        <FaFilePowerpoint />
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 384 512"
+                            class="svelte-c8tyih"
+                            ><path
+                                d="M193.7 271.2c8.8 0 15.5 2.7 20.3 8.1 9.6 10.9 9.8 32.7-.2 44.1-4.9 5.6-11.9 8.5-21.1 8.5h-26.9v-60.7h27.9zM377 105L279 7c-4.5-4.5-10.6-7-17-7h-6v128h128v-6.1c0-6.3-2.5-12.4-7-16.9zm-153 31V0H24C10.7 0 0 10.7 0 24v464c0 13.3 10.7 24 24 24h336c13.3 0 24-10.7 24-24V160H248c-13.2 0-24-10.8-24-24zm53 165.2c0 90.3-88.8 77.6-111.1 77.6V436c0 6.6-5.4 12-12 12h-30.8c-6.6 0-12-5.4-12-12V236.2c0-6.6 5.4-12 12-12h81c44.5 0 72.9 32.8 72.9 77z"
+                            /></svg
+                        >
                     </div>
                     Download in PowePoint
                 </a>
@@ -176,17 +134,19 @@
     <div
         title="Close"
         class="btn-close"
-        on:click|stopPropagation={close_widget}
+        on:click|stopPropagation={closeWidget}
     >
-        <IoMdClose />
+        <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 512 512"
+            class="svelte-c8tyih"
+        >
+            <path
+                d="M405 136.798L375.202 107 256 226.202 136.798 107 107 136.798 226.202 256 107 375.202 136.798 405 256 285.798 375.202 405 405 375.202 285.798 256z"
+            />
+        </svg>
     </div>
 </div>
-
-{#if posting}
-    <div class="fixed-container">
-        <Spinner />
-    </div>
-{/if}
 
 <style>
     .slide-details {
@@ -239,8 +199,7 @@
         width: 220px;
     }
 
-    .actions > a,
-    .actions > div {
+    .actions > a {
         display: flex;
         justify-content: flex-start;
         align-items: center;
@@ -251,15 +210,8 @@
         color: #fff;
     }
 
-    .actions > a:not(:last-child),
-    .actions > div:not(:last-child) {
+    .actions > a:not(:last-child) {
         margin-bottom: 0.875rem;
-    }
-
-    div.edit-collection {
-        background-color: #20b2aa;
-        text-decoration: underline;
-        cursor: pointer;
     }
 
     a.slide-open {
@@ -298,13 +250,5 @@
         width: 25px;
         height: 25px;
         cursor: pointer;
-    }
-
-    .fixed-container {
-        z-index: 3;
-        position: fixed;
-        top: 0;
-        left: 50%;
-        transform: translateX(-50%);
     }
 </style>
